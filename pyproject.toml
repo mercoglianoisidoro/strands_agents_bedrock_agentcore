@@ -1,0 +1,11 @@
+[project]
+name = "strands-agents-workspace"
+version = "0.1.0"
+description = "Strands Agents Monorepo"
+requires-python = ">=3.10"
+
+[tool.uv.workspace]
+members = ["local-agents", "shared"]
+
+[tool.uv]
+dev-dependencies = []
