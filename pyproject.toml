@@ -5,7 +5,7 @@ description = "Strands Agents Monorepo"
 requires-python = ">=3.10"
 
 [tool.uv.workspace]
-members = ["local-agents", "shared"]
+members = ["local-agents", "shared", "remote-agentcore"]
 
 [tool.uv]
 dev-dependencies = []
