@@ -1,8 +1,8 @@
-default_agent: novaNavy_Agent
+default_agent: test_agent
 agents:
-  novaNavy_Agent:
+  test_agent:
     name: test_agent
-    entrypoint: remote_agent.py
+    entrypoint: remote_agents.remote_agent:app
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10
     platform: linux/amd64
