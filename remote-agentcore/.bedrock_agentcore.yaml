@@ -2,7 +2,7 @@ default_agent: test_agent
 agents:
   test_agent:
     name: test_agent
-    entrypoint: remote_agents.remote_agent:app
+    entrypoint: remote_agents/remote_agent.py
     deployment_type: direct_code_deploy
     runtime_type: PYTHON_3_10
     platform: linux/amd64
