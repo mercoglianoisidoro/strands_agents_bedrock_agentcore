@@ -1,4 +1,3 @@
-"""Remote agents package."""
-from remote_agents.remote_agent import app
+from .remote_agent import app, invoke
 
-__all__ = ["app"]
+__all__ = ["app", "invoke"]

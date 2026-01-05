@@ -1,7 +1,6 @@
 """Run Claude agent."""
 import logging
 from bedrock_agentcore import BedrockAgentCoreApp
-from local_agents.claude.agent import create_agent__claude
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,8 +15,11 @@ def get_agent():
     global _agent
     if _agent is None:
         logger.info("Creating agent instance")
+        from remote_agents.src.claude.agent import create_agent__claude
         _agent = create_agent__claude()
     return _agent
+
+
 
 @app.entrypoint
 async def invoke(payload, context):
