@@ -8,31 +8,41 @@ import asyncio
 import logging
 import sys
 import argparse
+import importlib
+from pathlib import Path
 
-from local_agents.claude.agent import create_agent__claude
-from local_agents.ollama.agent import create_agent__ollama
-from local_agents.aws_investigator.agent import create_agent__aws_investigator
 from local_agents.agent_wrapper import AgentWrapper
 from strands_shared.terminal import Terminal
 
 
-AGENT_TYPES = {
-    "claude": {
-        "name": "Claude",
-        "description": "Claude agent via AWS Bedrock",
-        "create_fn": create_agent__claude
-    },
-    "ollama": {
-        "name": "Ollama",
-        "description": "Ollama local agent",
-        "create_fn": create_agent__ollama
-    },
-    "aws_investigator": {
-        "name": "AWS Investigator",
-        "description": "AWS investigation agent with Lambda tools",
-        "create_fn": create_agent__aws_investigator
-    }
-}
+def discover_agents():
+    """Dynamically discover agent types from directory structure."""
+    agents = {}
+    agents_dir = Path(__file__).parent
+
+    for agent_path in agents_dir.iterdir():
+        if agent_path.is_dir() and agent_path.name not in ['__pycache__', 'shared']:
+            agent_name = agent_path.name
+            agent_module_path = f"local_agents.{agent_name}.agent"
+
+            try:
+                module = importlib.import_module(agent_module_path)
+                create_fn = getattr(module, f"create_agent__{agent_name}", None)
+
+                if create_fn:
+                    agents[agent_name] = {
+                        "name": agent_name.replace("_", " ").title(),
+                        "description": f"{agent_name.replace('_', ' ').title()} agent",
+                        "create_fn": create_fn
+                    }
+            except (ImportError, AttributeError):
+                continue
+
+    return agents
+
+
+# Agent types will be discovered in main() after logging is configured
+AGENT_TYPES = {}
 
 
 def list_agents():
@@ -59,7 +69,7 @@ def create_agent(agent_type: str):
         print(f"Unknown agent type: {agent_type}")
         print("\nUse --list-agents to see available types")
         sys.exit(1)
-    
+
     info = AGENT_TYPES[agent_type]
     print(f"Creating {info['name']} agent...")
     return info['create_fn']()
@@ -97,19 +107,24 @@ async def main():
         default="WARNING",
         help="Set logging level (default: WARNING)"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Handle --list-agents
     if args.list_agents:
         list_agents()
         return
-    
+
     # Configure logging
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format='%(levelname)s - %(name)s - %(message)s'
     )
+
+    # Discover agents after logging is configured
+    global AGENT_TYPES
+    AGENT_TYPES = discover_agents()
+    logging.debug(f"Discovered agent types: {AGENT_TYPES}")
 
     # Create agent with feedback
     agent = create_agent(args.agent_type)
