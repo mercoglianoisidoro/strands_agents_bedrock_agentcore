@@ -76,7 +76,7 @@ class remote_agent_client:
         
         # Generate session ID with timestamp
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.session_id = f"session-{timestamp}-{str(hash(self))[-8:]}"
+        self.session_id = f"session-{timestamp}-{str(hash(self))[-9:]}"
         
         if log_session:
             print(f"Session ID: {self.session_id}")
