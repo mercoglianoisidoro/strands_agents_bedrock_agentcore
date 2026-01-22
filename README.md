@@ -1,20 +1,44 @@
 # Strands Agents Monorepo
 
-Python monorepo for Strands agent components using UV workspace management with a shared virtual environment.
+Python monorepo showcasing:
+- Strands agent implementation
+- AWS bedrock Agentcore implementations
+
+The monorepo uses UV workspace management with a shared virtual environment.
+
 
 ## Structure
 
 ```
-strands_agents/
-├── pyproject.toml         # Root workspace configuration
-├── uv.lock                # Unified dependency lock file
-├── .venv/                 # Shared virtual environment
-├── local-agents/          # Local Strands agents (Claude, Ollama)
+strands_agents_bedrock_agentcore/
+├── pyproject.toml                  # Root workspace configuration
+├── uv.lock                         # Unified dependency lock file
+├── .venv/                          # Shared virtual environment
+├── local-agents/                   # Local Strands agents (Claude, Ollama, AWS Investigator)
 │   ├── pyproject.toml
 │   └── local_agents/
-└── shared/                # Shared utilities and configurations
-    ├── pyproject.toml
-    └── strands_shared/
+│       ├── claude/                 # Claude agent via Bedrock
+│       ├── ollama/                 # Ollama local agent
+│       └── aws_investigator/       # AWS infrastructure investigation agent
+├── remote-agentcore/               # AWS Bedrock AgentCore deployment
+│   ├── pyproject.toml
+│   ├── pre-deploy.sh               # Workspace dependency sync
+│   └── remote_agents/
+│       └── remote_agent.py         # AgentCore entrypoint
+├── shared/                         # Shared utilities and configurations
+│   ├── pyproject.toml
+│   └── strands_shared/
+│       ├── config/                 # Base configuration classes
+│       ├── terminal/               # Terminal interface
+│       └── tools/                  # Custom tools (Lambda executor)
+├── agentcore_client/               # Client library for deployed agents
+│   ├── pyproject.toml
+│   └── strands_agentcore_client/
+├── web-openui-integration/         # Open WebUI integration
+│   ├── agentcore_function.py       # Manual config
+│   └── agentcore_function_auto.py  # Auto config from .bedrock_agentcore.yaml
+└── litellm-integration/            # LiteLLM proxy for OpenAI-compatible API
+    └── litellm_config.yaml
 ```
 
 ## Python Workspace
@@ -33,7 +57,7 @@ This monorepo uses **UV workspace** with a **shared virtual environment**:
 uv sync --all-packages
 ```
 
-This installs both workspace members (`local-agents`, `shared`) and all their dependencies into the shared `.venv/`.
+This installs all workspace members (`local-agents`, `shared`, `remote-agentcore`, `agentcore_client`) and their dependencies into the shared `.venv/`.
 
 ## Activate Python Environment
 
@@ -44,6 +68,7 @@ source .venv/bin/activate
 # Or use convenience scripts
 source activate-locals.sh   # Activates and cd to local-agents
 source activate-shared.sh   # Activates and cd to shared
+source activate-remote.sh   # Activates, cd to remote-agentcore, and runs pre-deploy.sh
 ```
 
 ## Running Code

@@ -5,15 +5,41 @@ Shared utilities for Strands agents - common code used across local and remote a
 ## Contents
 
 ### config/
-Base configuration classes for agent setup:
-- `BaseConfig`: Common configuration with environment loading, logging setup, and system prompt management
+**Purpose:** Standardize configuration management across all agent implementations.
+
+Provides a base configuration class that handles environment variable loading, logging setup, and system prompt management. This ensures consistent configuration patterns whether agents run locally or in remote environments like AWS Lambda.
+
+**Key Component:**
+- `BaseConfig`: Foundation for agent configuration with built-in support for `.env` files, colored logging, and markdown-based system prompts
+
+**Why it exists:** Eliminates configuration boilerplate and ensures all agents follow the same setup patterns, making it easier to maintain and deploy agents across different environments.
+
+---
 
 ### tools/
-Reusable custom tools for agents
+**Purpose:** Extend agent capabilities with reusable custom tools.
+
+Contains specialized tools that agents can use to interact with external systems. Currently focused on AWS infrastructure operations through secure, isolated execution environments.
+
+**Key Component:**
+- `lambda_aws_cli_executor`: Enables agents to execute AWS CLI commands remotely via Lambda, allowing safe cross-account operations and infrastructure investigation without exposing credentials
+
+**PLEASE NOTE**: the lambda creation is still missing in this repository
+
+
+**Why it exists:** Agents need to interact with AWS infrastructure in a secure, auditable way. This tool provides that capability while maintaining security boundaries and enabling complex AWS automation workflows.
+
+---
 
 ### terminal/
-Terminal interface utilities for interactive agent sessions:
-- `Terminal`: Minimal terminal interface for agent interaction with markdown support
+**Purpose:** Provide interactive terminal interfaces for local agent development and testing.
+
+Offers a rich terminal experience with markdown rendering, streaming responses, and multi-line input support. Designed for developers working with agents locally before deployment.
+
+**Key Component:**
+- `Terminal`: Interactive CLI interface that wraps agents with user-friendly input/output handling, including colored output, markdown formatting, and graceful error handling
+
+**Why it exists:** Developers need an easy way to interact with agents during development. This provides a polished terminal experience without requiring each agent to implement its own CLI interface.
 
 ## Installation
 
