@@ -19,6 +19,10 @@ def lambda_aws_cli_executor(
     Execute AWS CLI commands via Lambda function.
     Note: this tool requires valid AWS credentials to connect to a target account where this tool is executed,
     these execution credentials come from the environment.
+    
+    Required environment variables:
+    - AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR: AWS profile to use for Lambda invocation
+    - LAMBDA_FUNCTION_NAME: Name of the Lambda function to invoke (e.g., strands-agents-aws-executor-{env})
 
     Args:
         bash_command (str): The AWS CLI command to execute. Ideally ask for text as output.
@@ -79,10 +83,18 @@ def lambda_aws_cli_executor(
         "sessionId": f"session-{int(time.time() * 1000)}-{random.randint(100, 999)}"
     }
 
+    # Get Lambda function name from environment variable
+    lambda_function_name = os.getenv('LAMBDA_FUNCTION_NAME')
+    if not lambda_function_name or not lambda_function_name.strip():
+        raise ValueError("LAMBDA_FUNCTION_NAME environment variable must be set")
+    
+    if debug_mode:
+        print(f"Using Lambda function: {lambda_function_name}")
+
     try:
         # Invoke Lambda function
         response = lambda_client.invoke(
-            FunctionName="isipilot-aws",
+            FunctionName=lambda_function_name,
             Payload=json.dumps(payload),
             InvocationType="RequestResponse"
         )
