@@ -17,8 +17,12 @@ import yaml
 from collections import OrderedDict
 from typing import Generator, Iterator, Optional
 from pydantic import BaseModel, Field
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# Default config path: relative to this script's parent directory
+DEFAULT_CONFIG_PATH = str(Path(__file__).parent.parent / "remote-agentcore" / ".bedrock_agentcore.yaml")
 
 
 class LRUCache(OrderedDict):
@@ -38,7 +42,7 @@ class LRUCache(OrderedDict):
 class Pipe:
     class Valves(BaseModel):
         AGENTCORE_CONFIG_PATH: str = Field(
-            default=os.path.expanduser("~/workspaces/strands_agents/remote-agentcore/.bedrock_agentcore.yaml"),
+            default=os.getenv("AGENTCORE_CONFIG_PATH", DEFAULT_CONFIG_PATH),
             description="Path to .bedrock_agentcore.yaml config file"
         )
         AWS_REGION: str = Field(
