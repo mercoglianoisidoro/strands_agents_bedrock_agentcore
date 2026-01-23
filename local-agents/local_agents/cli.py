@@ -11,12 +11,17 @@ import argparse
 import importlib
 from pathlib import Path
 
+# Add parent directory to path when running directly
+if __name__ == "__main__" and __package__ is None:
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from local_agents.agent_wrapper import AgentWrapper
 from strands_shared.terminal import Terminal
 
 
 def discover_agents():
     """Dynamically discover agent types from directory structure."""
+    logger = logging.getLogger(__name__)
     agents = {}
     agents_dir = Path(__file__).parent
 
@@ -35,7 +40,11 @@ def discover_agents():
                         "description": f"{agent_name.replace('_', ' ').title()} agent",
                         "create_fn": create_fn
                     }
-            except (ImportError, AttributeError):
+                    logger.debug(f"Discovered agent: {agent_name}")
+                else:
+                    logger.warning(f"Agent module {agent_module_path} found but missing create_agent__{agent_name} function")
+            except (ImportError, AttributeError) as e:
+                logger.warning(f"Failed to load agent {agent_name}: {e}")
                 continue
 
     return agents
@@ -110,12 +119,7 @@ async def main():
 
     args = parser.parse_args()
 
-    # Handle --list-agents
-    if args.list_agents:
-        list_agents()
-        return
-
-    # Configure logging
+    # Configure logging FIRST (even for --list-agents)
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format='%(levelname)s - %(name)s - %(message)s'
@@ -124,7 +128,12 @@ async def main():
     # Discover agents after logging is configured
     global AGENT_TYPES
     AGENT_TYPES = discover_agents()
-    logging.debug(f"Discovered agent types: {AGENT_TYPES}")
+    logging.debug(f"Discovered agent types: {list(AGENT_TYPES.keys())}")
+
+    # Handle --list-agents
+    if args.list_agents:
+        list_agents()
+        return
 
     # Create agent with feedback
     agent = create_agent(args.agent_type)
