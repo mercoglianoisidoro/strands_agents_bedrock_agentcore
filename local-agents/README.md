@@ -63,7 +63,7 @@ Combines Claude's intelligence with AWS-specific tools, including remote AWS CLI
 
 ### 1. Install Workspace Packages
 
-This package is part of the strands_agents workspace. Install from workspace root:
+This package is part of the strands_agents_bedrock_agentcore workspace. Install from workspace root:
 
 ```bash
 # Install all workspace packages
@@ -246,7 +246,7 @@ The terminal interface supports:
 
 ## Development
 
-This package is part of the strands_agents monorepo workspace. See the [workspace README](../README.md) for general setup instructions.
+This package is part of the strands_agents_bedrock_agentcore monorepo workspace. See the [workspace README](../README.md) for general setup instructions.
 
 ### Type Checking
 

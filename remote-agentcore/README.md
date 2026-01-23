@@ -28,13 +28,13 @@ Before deploying, ensure you have:
 
 4. **Workspace packages** installed:
    ```bash
-   cd /path/to/strands_agents
+   cd ../../ # go to repositoy root path
    uv sync --all-packages
    ```
 
 ## Installation
 
-This package is part of the strands_agents workspace and requires workspace dependencies.
+This package is part of the strands_agents_bedrock_agentcore workspace and requires workspace dependencies.
 
 ### Workspace Dependency Sync
 
