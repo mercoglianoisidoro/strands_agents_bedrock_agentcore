@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 app = BedrockAgentCoreApp()
 
-# Cache agent instance to avoid recreating on every invocation
+# Cache agent instance
 _agent = None
 
 def get_agent():
@@ -15,18 +15,16 @@ def get_agent():
     global _agent
     if _agent is None:
         logger.info("Creating agent instance")
-        from remote_agents.src.claude.agent import create_agent__claude
+        from src.claude.agent import create_agent__claude
         _agent = create_agent__claude()
     return _agent
-
-
 
 @app.entrypoint
 async def invoke(payload, context):
     """Your AI agent function"""
     try:
         if not isinstance(payload, dict):
-            yield {"error": "Invalid payload format", "type": "ValueError"}
+            yield "Error: Invalid payload format"
             return
 
         user_message = payload.get("prompt", "Hello!")
@@ -42,8 +40,7 @@ async def invoke(payload, context):
         logger.info("Request completed successfully")
     except Exception as e:
         logger.error(f"Error processing request: {e}", exc_info=True)
-        yield {"error": str(e), "type": type(e).__name__}
+        yield f"Error: {str(e)}"
 
 if __name__ == "__main__":
     app.run()
-
