@@ -12,6 +12,10 @@ rm -rf "$SCRIPT_DIR/strands_shared"
 cp -r "$WORKSPACE_ROOT/shared/strands_shared" "$SCRIPT_DIR/"
 echo "✅ strands_shared synced"
 
+# Clean agentcore cache to prevent bloated deployments
+rm -rf "$SCRIPT_DIR/remote_agents/.bedrock_agentcore"
+echo "✅ .bedrock_agentcore cache cleaned"
+
 # Create .bedrock_agentcore.yaml from template if it doesn't exist
 
 if [ ! -f "$SCRIPT_DIR/.bedrock_agentcore.yaml" ]; then
