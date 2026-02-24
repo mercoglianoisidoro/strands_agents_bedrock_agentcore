@@ -1,11 +1,17 @@
 # Strands Agents Monorepo
 
-Python monorepo showcasing:
-- Strands agent implementation
-- AWS bedrock Agentcore implementations
+Python monorepo demonstrating showcasing AI agents using the Strands framework and AWS Bedrock Agentcore.
 
-The monorepo uses UV workspace management with a shared virtual environment.
+## Content overview:
 
+- **local agents**: Strands-based agents that execute locally
+- **remote agentcore**: AWS Bedrock AgentCore agents (AWS cloud-native agent hosting)
+- **shared utilities**: Common utilities, configuration classes, terminal interfaces, and reusable tools (e.g., Lambda executor)
+- **clients**: Python clients for interacting with local and remote agents
+- **web openui integration**: Functions for integrating agents into Open WebUI
+- **litellm integration**: LiteLLM proxy configuration for OpenAI-compatible endpoints
+
+The monorepo uses **UV workspace management** with a **shared virtual environment**, ensuring consistent dependencies across all components while maintaining modular development.
 
 ## Structure
 
@@ -44,6 +50,7 @@ strands_agents_bedrock_agentcore/
 ## Python Workspace
 
 This monorepo uses **UV workspace** with a **shared virtual environment**:
+
 - Single `.venv/` at root contains all dependencies from all workspace members
 - Unified `uv.lock` ensures consistent versions across components
 - Each component has its own `pyproject.toml` for dependency declaration
@@ -111,3 +118,73 @@ cd local-agents
 cd ..
 uv sync --all-packages
 ```
+
+## Uses cases
+
+### Run local agents
+
+```bash
+source activate-locals.sh
+python cli.py
+
+```
+
+or
+
+```bash
+local-agents/local_agents
+uv run cli.py
+```
+
+To show the available agents:
+
+`uv run cli.py --list-agents`,
+
+then run with:
+
+`uv run cli.py AGENT_NAME`,
+
+### Run local "Aws Investigator agent"
+
+In this case you need to provision the lambda from 'infrastructure-lambda' using an aws access with the right permissions:
+
+```bash
+cd infrastructure-lambda
+terraform init
+terraform apply --auto-approve
+cd ..
+
+cd local-agents/local_agents/
+uv run cli.py aws_investigator
+```
+
+Note:
+
+- the local aws credentials are used only to run the agent, not for connecting to the account
+- in order for the LLM be able to connect to AWS, you need to provide the credentials directly to the LLM.
+
+
+
+### Run remote agents with terraform
+You need to provision the agent (it needs the right permissions) and the you can connect to it:
+
+```bash
+cd infrastructure-agentcore
+terraform init
+terraform apply --auto-approve
+cd ..
+```
+
+Then connect to is using the client
+```bash
+cd agentcore_client/strands_agentcore_client
+
+uv run cli.py --agent-arn $(cd ../../infrastructure-agentcore && terraform output -raw runtime_arn)
+
+```
+
+Note: use `uv run cli.py --help` to get more info.
+
+
+## TODO:
+[] split lambda for the 2 different scenatios: agent and MCP (the payload is different)
