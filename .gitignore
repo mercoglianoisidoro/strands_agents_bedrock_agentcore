@@ -104,6 +104,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
 .venv
 env/
 venv/
@@ -161,13 +162,34 @@ credentials.json
 *.swo
 *~
 
-
-
-
-
+# AgentCore
 .browsermcpdata/
 .bedrock_agentcore/
 output
 
+# Old/deprecated
 OLD
 remote-agentcore/strands_shared
+remote-agentcore/remote_agents/strands_shared/
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+infrastructure-agentcore/.terraform/
+infrastructure-agentcore/terraform.tfstate
+infrastructure-agentcore/terraform.tfstate.backup
+infrastructure-agentcore/*.tfplan
+
+# Lambda deployment packages
+lambda_infrastructure/lambda_aws_function.zip
+infrastructure-lambda/lambda_aws_function.zip
