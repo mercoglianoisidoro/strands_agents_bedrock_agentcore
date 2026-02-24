@@ -1,6 +1,7 @@
 log_message() {
     local message="$1"
-    echo "[${SESSION_ID}]-${message}" >&2
+    local session="${SESSION_ID:-unknown}"
+    echo "[${session}]-${message}" >&2
 }
 
 get_chunk() {
@@ -34,16 +35,32 @@ function handler() {
 
     TIMESTAMP=$(date +%s%3N)
 
-    # data from query
-    AWS_ACCESS_KEY_ID_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="AWS_ACCESS_KEY_ID") | .value')
-    AWS_SESSION_TOKEN_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="AWS_SESSION_TOKEN") | .value')
-    AWS_SECRET_ACCESS_KEY_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="AWS_SECRET_ACCESS_KEY") | .value')
-    AWS_REGION_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="REGION") | .value')
-    SESSION_ID=$(echo $EVENT_DATA | jq -r '.sessionId')
+    # Detect event format (MCP vs Bedrock Agent)
+    if echo "$EVENT_DATA" | jq -e '.bash_command' > /dev/null 2>&1; then
+        # MCP format from AgentCore Gateway (flat structure)
+        log_message "Detected MCP event format"
+        
+        AWS_ACCESS_KEY_ID_to_use=$(echo $EVENT_DATA | jq -r '.AWS_ACCESS_KEY_ID // ""')
+        AWS_SESSION_TOKEN_to_use=$(echo $EVENT_DATA | jq -r '.AWS_SESSION_TOKEN // ""')
+        AWS_SECRET_ACCESS_KEY_to_use=$(echo $EVENT_DATA | jq -r '.AWS_SECRET_ACCESS_KEY // ""')
+        AWS_REGION_to_use=$(echo $EVENT_DATA | jq -r '.REGION // ""')
+        BASHCOMMAND=$(echo $EVENT_DATA | jq -r '.bash_command // ""')
+        SESSION_ID="mcp-session"
+        IS_MCP=true
+    else
+        # Bedrock Agent format
+        log_message "Detected Bedrock Agent event format"
+        
+        AWS_ACCESS_KEY_ID_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="AWS_ACCESS_KEY_ID") | .value')
+        AWS_SESSION_TOKEN_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="AWS_SESSION_TOKEN") | .value')
+        AWS_SECRET_ACCESS_KEY_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="AWS_SECRET_ACCESS_KEY") | .value')
+        AWS_REGION_to_use=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="REGION") | .value')
+        SESSION_ID=$(echo $EVENT_DATA | jq -r '.sessionId')
+        BASHCOMMAND=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="bash_command") | .value')
+        IS_MCP=false
+    fi
 
     log_message "EVENT_DATA=$EVENT_DATA"
-    # Extract the bash command to execute
-    BASHCOMMAND=$(echo $EVENT_DATA | jq -r '.parameters[] | select(.name=="bash_command") | .value')
 
     if [ -z "$AWS_SESSION_TOKEN_to_use" ]; then
         #no token provided
@@ -66,7 +83,7 @@ function handler() {
     # Escape quotes and backslashes in the command for proper JSON formatting
     ESCAPED_COMMAND=$(echo "$BASHCOMMAND" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
 
-    send_log_result=$(AWS_REGION=us-west-2 aws logs put-log-events --log-group-name "/aws/lambda/strands-agents-debug-${var.environment}" --log-stream-name "cli-commands" \
+    send_log_result=$(AWS_REGION=us-west-2 aws logs put-log-events --log-group-name "/aws/lambda/strands-agents-debug-dev" --log-stream-name "cli-commands" \
         --log-events "[{\"timestamp\": $(date +%s000), \"message\": \"$ESCAPED_COMMAND\"}]")
     # log_message "send_log_result = $send_log_result" >&2
 
@@ -135,11 +152,31 @@ function handler() {
 
     log_message "RESULT=$RESULT"
 
-    input_actionGroup=$(echo $EVENT_DATA | jq -r '.actionGroup')
-    input_function=$(echo $EVENT_DATA | jq -r '.function')
+    # Check event format for response
+    if [ "$IS_MCP" = true ]; then
+        # MCP response format
+        if [ $EXIT_CODE -eq 0 ]; then
+            updated_json=$(jq -n \
+                --arg result "$RESULT" \
+                '{
+                    content: [{type: "text", text: $result}],
+                    isError: false
+                }')
+        else
+            updated_json=$(jq -n \
+                --arg result "$RESULT" \
+                '{
+                    content: [{type: "text", text: $result}],
+                    isError: true
+                }')
+        fi
+    else
+        # Bedrock Agent response format
+        input_actionGroup=$(echo $EVENT_DATA | jq -r '.actionGroup')
+        input_function=$(echo $EVENT_DATA | jq -r '.function')
 
-    template_answer=$(
-        cat <<EOF
+        template_answer=$(
+            cat <<EOF
 {
     "messageVersion": "1.0",
     "response": {
@@ -155,30 +192,31 @@ function handler() {
     }
 }
 EOF
-    )
+        )
 
-    # Check if command executed successfully
-    if [ $EXIT_CODE -eq 0 ]; then
-        updated_json=$(echo "$template_answer" | jq \
-            --arg ag "$input_actionGroup" \
-            --arg fn "$input_function" \
-            --arg bd "$RESULT" \
-            '.response.actionGroup = $ag |
-    .response.function = $fn |
-    .response.functionResponse.responseBody.TEXT.body = $bd')
+        # Check if command executed successfully
+        if [ $EXIT_CODE -eq 0 ]; then
+            updated_json=$(echo "$template_answer" | jq \
+                --arg ag "$input_actionGroup" \
+                --arg fn "$input_function" \
+                --arg bd "$RESULT" \
+                '.response.actionGroup = $ag |
+        .response.function = $fn |
+        .response.functionResponse.responseBody.TEXT.body = $bd')
 
-    else
+        else
 
-        updated_json=$(echo "$template_answer" | jq \
-            --arg ag "$input_actionGroup" \
-            --arg fn "$input_function" \
-            --arg bd "$RESULT" \
-            --arg responseState "REPROMPT" \
-            '.response.actionGroup = $ag |
-    .response.function = $fn |
-    .response.functionResponse.responseState = $responseState |
-    .response.functionResponse.responseBody.TEXT.body = $bd')
+            updated_json=$(echo "$template_answer" | jq \
+                --arg ag "$input_actionGroup" \
+                --arg fn "$input_function" \
+                --arg bd "$RESULT" \
+                --arg responseState "REPROMPT" \
+                '.response.actionGroup = $ag |
+        .response.function = $fn |
+        .response.functionResponse.responseState = $responseState |
+        .response.functionResponse.responseBody.TEXT.body = $bd')
 
+        fi
     fi
 
     # Output the JSON response
