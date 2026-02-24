@@ -218,7 +218,48 @@ uv run cli.py --agent-arn $(cd ../../infrastructure-agentcore && terraform outpu
 
 Note: use `uv run cli.py --help` to get more info.
 
+### Run AgentCore Gateway with Terraform
 
+The gateway exposes Lambda functions as MCP tools with built-in authentication.
+
+First, deploy the Lambda function:
+```bash
+cd infrastructure-lambda
+terraform init
+terraform apply --auto-approve
+cd ..
+```
+
+Then deploy the gateway:
+```bash
+cd infrastructure_gateway
+terraform init
+terraform apply --auto-approve
+cd ..
+```
+
+Test the gateway:
+```bash
+cd infrastructure_gateway
+
+# List available tools
+python test_gateway.py
+
+# Call a tool
+python test_gateway.py call <access_key> <secret_key> <region> "<aws-cli-command>"
+
+# example (with not existing creds):
+python test_gateway.py call AKIAIOSFODNN7EXAMPLE wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY us-east-1 "aws sts get-caller-identity"
+
+```
+
+The gateway uses IAM SigV4 authentication. Your AWS credentials must have `bedrock-agentcore:InvokeGateway` permission.
+
+To destroy:
+```bash
+cd infrastructure_gateway && terraform destroy --auto-approve
+cd ../infrastructure-lambda && terraform destroy --auto-approve
+```
 
 ## TODO:
 [] split lambda for the 2 different scenatios: agent and MCP (the payload is different)
