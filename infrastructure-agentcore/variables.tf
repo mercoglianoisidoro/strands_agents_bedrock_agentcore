@@ -27,6 +27,18 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "docker_build_context" {
+  description = "Path to Docker build context"
+  type        = string
+  default     = "../remote-agentcore/remote_agents"
+}
+
+variable "iam_role_name_prefix" {
+  description = "Prefix for IAM role name"
+  type        = string
+  default     = "agentcore-runtime-"
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

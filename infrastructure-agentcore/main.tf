@@ -47,7 +47,7 @@ resource "docker_image" "agent" {
   name = "${aws_ecr_repository.agent.repository_url}:${var.image_tag}"
 
   build {
-    context    = "${path.module}/../remote-agentcore/remote_agents"
+    context    = "${path.module}/${var.docker_build_context}"
     dockerfile = "Dockerfile"
     platform   = "linux/arm64"
     no_cache   = true  # Force rebuild every time
@@ -71,7 +71,7 @@ resource "docker_registry_image" "agent" {
 
 # IAM role for AgentCore Runtime
 resource "aws_iam_role" "agentcore_runtime" {
-  name_prefix = "agentcore-runtime-"
+  name_prefix = var.iam_role_name_prefix
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
