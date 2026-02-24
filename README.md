@@ -165,10 +165,43 @@ Note:
 
 
 
+
+
+
+### Run remote agents with agentcore command
+
+Use this for development.
+
+```bash
+
+source ./activate-remote.sh
+agentcore deploy
+cd ..
+
+```
+
+Then connect to is using the client:
+```bash
+cd agentcore_client/strands_agentcore_client
+uv run cli.py
+
+```
+
+
+To destroy: `agentcore destroy`
+
+
+
 ### Run remote agents with terraform
 You need to provision the agent (it needs the right permissions) and the you can connect to it:
 
 ```bash
+
+cd strands_agents/remote-agentcore
+bash pre-deploy.sh
+cd ../../
+
+
 cd infrastructure-agentcore
 terraform init
 terraform apply --auto-approve
@@ -184,6 +217,7 @@ uv run cli.py --agent-arn $(cd ../../infrastructure-agentcore && terraform outpu
 ```
 
 Note: use `uv run cli.py --help` to get more info.
+
 
 
 ## TODO:
