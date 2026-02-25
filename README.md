@@ -142,147 +142,189 @@ cd ..
 uv sync --all-packages
 ```
 
-## Uses cases
+## Use Cases
 
-### Run local agents
+### 1. Run Local Agents
 
+**Description**: Execute Strands agents locally (Claude, Ollama) without any infrastructure dependencies.
+
+**Dependencies**: None
+
+```
+┌─────────────────┐
+│  Local Agent    │
+│  (Claude/Ollama)│
+└─────────────────┘
+```
+
+**Usage**:
 ```bash
 source activate-locals.sh
 python cli.py
 
-```
-
-or
-
-```bash
-local-agents/local_agents
+# Or directly
+cd local-agents/local_agents
 uv run cli.py
+
+# List available agents
+uv run cli.py --list-agents
+
+# Run specific agent
+uv run cli.py claude
 ```
 
-To show the available agents:
+---
 
-`uv run cli.py --list-agents`,
+### 2. Run AWS Investigator Agent (Local)
 
-then run with:
+**Description**: Local agent that executes AWS CLI commands via Lambda for secure AWS operations.
 
-`uv run cli.py AGENT_NAME`,
+**Dependencies**:
+- ✅ Lambda infrastructure (Terraform)
 
-### Run local "Aws Investigator agent"
+```
+┌─────────────────┐      ┌──────────────┐
+│ AWS Investigator│─────▶│ Lambda       │
+│ Agent (Local)   │      │ (AWS CLI)    │
+└─────────────────┘      └──────────────┘
+```
 
-In this case you need to provision the lambda from 'infrastructure-lambda' using an aws access with the right permissions:
-
+**Setup**:
 ```bash
+# 1. Deploy Lambda
 cd infrastructure-lambda
 terraform init
 terraform apply --auto-approve
 cd ..
 
+# 2. Run agent
 cd local-agents/local_agents/
 uv run cli.py aws_investigator
 ```
 
-Note:
+**Note**: Local AWS credentials are used only to run the agent. Provide AWS credentials directly to the LLM for AWS operations.
 
-- the local aws credentials are used only to run the agent, not for connecting to the account
-- in order for the LLM be able to connect to AWS, you need to provide the credentials directly to the LLM.
+---
 
+### 3. Run Remote Agents (AgentCore CLI)
 
+**Description**: Deploy and run agents on AWS Bedrock AgentCore using the CLI (for development).
 
+**Dependencies**:
+- ✅ AWS credentials with AgentCore permissions
 
+```
+┌─────────────────┐      ┌──────────────────┐
+│ AgentCore CLI   │─────▶│ Bedrock          │
+│ (Local)         │      │ AgentCore Runtime│
+└─────────────────┘      └──────────────────┘
+```
 
-
-### Run remote agents with agentcore command
-
-Use this for development.
-
+**Usage**:
 ```bash
-
+# Deploy
 source ./activate-remote.sh
 agentcore deploy
 cd ..
 
-```
-
-Then connect to is using the client:
-```bash
+# Connect with client
 cd agentcore_client/strands_agentcore_client
 uv run cli.py
 
+# Destroy
+agentcore destroy
 ```
 
+---
 
-To destroy: `agentcore destroy`
+### 4. Run Remote Agents (Terraform)
 
+**Description**: Deploy agents to AgentCore using Terraform for production deployments.
 
+**Dependencies**:
+- ✅ AWS credentials with AgentCore permissions
+- ✅ Pre-deployment script execution
 
-### Run remote agents with terraform
-You need to provision the agent (it needs the right permissions) and the you can connect to it:
+```
+┌─────────────────┐      ┌──────────────────┐
+│ Terraform       │─────▶│ Bedrock          │
+│ (Infrastructure)│      │ AgentCore Runtime│
+└─────────────────┘      └──────────────────┘
+```
 
+**Setup**:
 ```bash
-
+# 1. Prepare deployment
 cd strands_agents/remote-agentcore
 bash pre-deploy.sh
 cd ../../
 
-
+# 2. Deploy with Terraform
 cd infrastructure-agentcore
 terraform init
 terraform apply --auto-approve
 cd ..
-```
 
-Then connect to is using the client
-```bash
+# 3. Connect with client
 cd agentcore_client/strands_agentcore_client
-
 uv run cli.py --agent-arn $(cd ../../infrastructure-agentcore && terraform output -raw runtime_arn)
-
 ```
 
-Note: use `uv run cli.py --help` to get more info.
+**Tip**: Use `uv run cli.py --help` for more options.
 
-### Run AgentCore Gateway with Terraform
+---
 
-The gateway exposes Lambda functions as MCP tools with built-in authentication.
+### 5. Run AgentCore Gateway (MCP Tools)
 
-First, deploy the Lambda function:
+**Description**: Expose Lambda functions as MCP tools with built-in IAM authentication via AgentCore Gateway.
+
+**Dependencies**:
+- ✅ Lambda infrastructure (Terraform)
+- ✅ Gateway infrastructure (Terraform)
+
+```
+┌─────────────────┐      ┌──────────────┐      ┌──────────────┐
+│ MCP Client      │─────▶│ AgentCore    │─────▶│ Lambda       │
+│ (Agent)         │      │ Gateway      │      │ (MCP Tools)  │
+└─────────────────┘      └──────────────┘      └──────────────┘
+```
+
+**Setup**:
 ```bash
+# 1. Deploy Lambda
 cd infrastructure-lambda
 terraform init
 terraform apply --auto-approve
 cd ..
-```
 
-Then deploy the gateway:
-```bash
+# 2. Deploy Gateway
 cd infrastructure_gateway
 terraform init
 terraform apply --auto-approve
 cd ..
-```
 
-Test the gateway:
-```bash
+# 3. Test Gateway
 cd infrastructure_gateway
 
-# List available tools
+# List tools
 python test_gateway.py
 
 # Call a tool
 python test_gateway.py call <access_key> <secret_key> <region> "<aws-cli-command>"
 
-# example (with not existing creds):
+# Example
 python test_gateway.py call AKIAIOSFODNN7EXAMPLE wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY us-east-1 "aws sts get-caller-identity"
-
 ```
 
-The gateway uses IAM SigV4 authentication. Your AWS credentials must have `bedrock-agentcore:InvokeGateway` permission.
+**Authentication**: Gateway uses IAM SigV4. Your AWS credentials need `bedrock-agentcore:InvokeGateway` permission.
 
-To destroy:
+**Cleanup**:
 ```bash
 cd infrastructure_gateway && terraform destroy --auto-approve
 cd ../infrastructure-lambda && terraform destroy --auto-approve
 ```
 
+
+
 ## TODO:
-[] split lambda for the 2 different scenatios: agent and MCP (the payload is different)
+[] split lambda for the 2 different scenarios: agent and MCP (the payload is different)
