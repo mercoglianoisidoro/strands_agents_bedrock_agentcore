@@ -1,48 +1,71 @@
 # Strands Agents Monorepo
 
-Python monorepo demonstrating showcasing AI agents using the Strands framework and AWS Bedrock Agentcore.
+Python monorepo showcasing AI agents using the Strands framework and AWS Bedrock Agentcore.
 
 ## Content overview:
 
-- **local agents**: Strands-based agents that execute locally
+- **local agents**: Strands-based agents that execute locally (Claude, Ollama, AWS Investigator)
 - **remote agentcore**: AWS Bedrock AgentCore agents (AWS cloud-native agent hosting)
-- **shared utilities**: Common utilities, configuration classes, terminal interfaces, and reusable tools (e.g., Lambda executor)
+- **shared utilities**: Common utilities, configuration classes, terminal interfaces, and reusable tools
 - **clients**: Python clients for interacting with local and remote agents
+- **infrastructure**: Terraform configurations for Lambda, AgentCore, and Gateway deployments
+- **documentation**: Comprehensive guides on multi-agent patterns, authentication, and deployment
 - **web openui integration**: Functions for integrating agents into Open WebUI
 - **litellm integration**: LiteLLM proxy configuration for OpenAI-compatible endpoints
+- **searxng setup**: Free web search integration for local agents
 
 The monorepo uses **UV workspace management** with a **shared virtual environment**, ensuring consistent dependencies across all components while maintaining modular development.
 
 ## Structure
 
 ```
-strands_agents_bedrock_agentcore/
+strands_agents/
 ├── pyproject.toml                  # Root workspace configuration
 ├── uv.lock                         # Unified dependency lock file
-├── .venv/                          # Shared virtual environment
-├── local-agents/                   # Local Strands agents (Claude, Ollama, AWS Investigator)
+│
+├── local-agents/                   # Local Strands agents
 │   ├── pyproject.toml
 │   └── local_agents/
 │       ├── claude/                 # Claude agent via Bedrock
 │       ├── ollama/                 # Ollama local agent
 │       └── aws_investigator/       # AWS infrastructure investigation agent
+│
 ├── remote-agentcore/               # AWS Bedrock AgentCore deployment
 │   ├── pyproject.toml
 │   ├── pre-deploy.sh               # Workspace dependency sync
 │   └── remote_agents/
 │       └── remote_agent.py         # AgentCore entrypoint
+│
 ├── shared/                         # Shared utilities and configurations
 │   ├── pyproject.toml
 │   └── strands_shared/
 │       ├── config/                 # Base configuration classes
 │       ├── terminal/               # Terminal interface
 │       └── tools/                  # Custom tools (Lambda executor)
+│
 ├── agentcore_client/               # Client library for deployed agents
 │   ├── pyproject.toml
 │   └── strands_agentcore_client/
+│
+├── infrastructure-lambda/          # Lambda deployment (Terraform)
+│   ├── main.tf
+│   ├── lambda.tf
+│   └── outputs.tf
+│
+├── infrastructure-agentcore/       # AgentCore deployment (Terraform)
+│   ├── main.tf
+│   ├── agentcore.tf
+│   └── outputs.tf
+│
+├── infrastructure_gateway/         # AgentCore Gateway (Terraform)
+│   ├── gateway.tf
+│   ├── test_gateway.py
+│   └── README.md
+│
 ├── web-openui-integration/         # Open WebUI integration
 │   ├── agentcore_function.py       # Manual config
 │   └── agentcore_function_auto.py  # Auto config from .bedrock_agentcore.yaml
+│
 └── litellm-integration/            # LiteLLM proxy for OpenAI-compatible API
     └── litellm_config.yaml
 ```
