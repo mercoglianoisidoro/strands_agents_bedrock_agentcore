@@ -8,6 +8,18 @@ locals {
 # Get ECR authorization token
 data "aws_ecr_authorization_token" "token" {}
 
+# Run pre-deploy script before Docker build
+resource "null_resource" "pre_deploy" {
+  triggers = {
+    always_run = timestamp()
+  }
+  
+  provisioner "local-exec" {
+    command     = "./pre-deploy.sh"
+    working_dir = "${path.module}/${var.docker_build_context}"
+  }
+}
+
 # ECR Repository for web search agent
 resource "aws_ecr_repository" "web_search_agent" {
   name                 = "${var.environment}_${var.agent_name}"
@@ -37,6 +49,8 @@ resource "docker_image" "web_search_agent" {
   triggers = {
     always_rebuild = timestamp()
   }
+  
+  depends_on = [null_resource.pre_deploy]
 }
 
 resource "docker_registry_image" "web_search_agent" {
@@ -109,6 +123,11 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
           "ecr:GetAuthorizationToken"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["lambda:InvokeFunction"]
+        Resource = "arn:aws:lambda:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:function:strands-agents-aws-executor-*"
       }
     ]
   })
@@ -147,6 +166,10 @@ resource "aws_bedrockagentcore_agent_runtime" "web_search" {
     AWS_REGION   = data.aws_region.current.id
     SEARXNG_URL  = local.searxng_url  # Back to private SearxNG
     MAX_RESULTS  = "5"
+    
+    # Lambda executor config
+    AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR = "default"
+    LAMBDA_FUNCTION_NAME = "strands-agents-aws-executor-${var.environment}"
   }
 
   tags = local.default_tags
