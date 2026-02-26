@@ -2,6 +2,9 @@ FROM public.ecr.aws/docker/library/python:3.11-slim
 
 WORKDIR /app
 
+# Copy workspace dependencies first
+COPY strands_shared/ ./strands_shared/
+
 # Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -11,6 +14,7 @@ COPY multi_agents/ ./multi_agents/
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 # Run the agent
 CMD ["python", "-m", "multi_agents.remote_entrypoint"]

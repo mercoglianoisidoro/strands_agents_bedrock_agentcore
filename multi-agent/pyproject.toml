@@ -11,7 +11,11 @@ dependencies = [
     "requests>=2.31.0",
     "agentcore>=0.1.6",
     "bedrock-agentcore-starter-toolkit>=0.3.0",
+    "strands-shared",
 ]
+
+[tool.uv.sources]
+strands-shared = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
