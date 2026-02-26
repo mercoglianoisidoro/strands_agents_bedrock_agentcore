@@ -1,17 +1,17 @@
-"""Web search agent implementation."""
+"""AWS investigator agent implementation."""
 
 from strands import Agent
 from strands.models import BedrockModel
 from strands_shared.tools import lambda_aws_cli_executor
 from .tools.searxng_tool import web_search
 from .tools.fetch_content_tool import fetch_webpage
-from .config import WebSearchConfig
+from .config import AwsInvestigatorConfig
 
 
-def create_web_search_agent() -> Agent:
-    """Create web search agent with SearxNG and AWS tools."""
+def create_aws_investigator_agent() -> Agent:
+    """Create AWS investigator agent with SearxNG and AWS tools."""
     
-    config = WebSearchConfig()
+    config = AwsInvestigatorConfig()
     
     # Setup logging (skip if colorlog not available)
     try:

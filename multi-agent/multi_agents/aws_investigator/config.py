@@ -1,12 +1,12 @@
-"""Configuration for web search agent."""
+"""Configuration for AWS investigator agent."""
 
 import os
 from pathlib import Path
 from strands_shared.config import BaseConfig
 
 
-class WebSearchConfig(BaseConfig):
-    """Configuration for web search agent."""
+class AwsInvestigatorConfig(BaseConfig):
+    """Configuration for AWS investigator agent."""
     
     def __init__(self) -> None:
         super().__init__(Path(__file__).parent)
