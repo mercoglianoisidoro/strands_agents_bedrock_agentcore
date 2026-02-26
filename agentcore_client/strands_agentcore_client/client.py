@@ -114,7 +114,12 @@ class remote_agent_client:
                         try:
                             # Parse JSON and extract the actual text
                             parsed = json.loads(line)
-                            content.append(parsed)
+                            # Extract text from dict if it's a dict
+                            if isinstance(parsed, dict):
+                                text = parsed.get('data', parsed.get('text', str(parsed)))
+                                content.append(text)
+                            else:
+                                content.append(str(parsed))
                         except json.JSONDecodeError:
                             # If not JSON, use as-is
                             content.append(line)
