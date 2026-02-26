@@ -67,3 +67,8 @@ output "agent_image_uri" {
   description = "Full Docker image URI"
   value       = "${aws_ecr_repository.web_search_agent.repository_url}:${var.image_tag}"
 }
+
+output "test_agent_command" {
+  description = "Command to test the agent using agentcore_client"
+  value       = "cd agentcore_client/strands_agentcore_client && uv run cli.py --agent-arn ${aws_bedrockagentcore_agent_runtime.web_search.agent_runtime_arn}"
+}
