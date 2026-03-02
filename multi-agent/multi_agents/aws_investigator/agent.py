@@ -3,6 +3,7 @@
 from strands import Agent
 from strands.models import BedrockModel
 from strands_shared.tools import lambda_aws_cli_executor
+from strands_tools import http_request
 from .tools.searxng_tool import web_search
 from .tools.fetch_content_tool import fetch_webpage
 from .config import AwsInvestigatorConfig
@@ -28,9 +29,9 @@ def create_aws_investigator_agent() -> Agent:
         region_name=config.region_name
     )
     
-    # Create agent with AWS capability
+    # Create agent with web, API, and AWS capabilities
     return Agent(
         model=model,
-        tools=[web_search, fetch_webpage, lambda_aws_cli_executor],
+        tools=[web_search, fetch_webpage, http_request, lambda_aws_cli_executor],
         system_prompt=system_prompt
     )

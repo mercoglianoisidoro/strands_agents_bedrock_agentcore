@@ -2,56 +2,52 @@
 
 from strands import tool
 import requests
-import os
 
 
 @tool
-def fetch_webpage(url: str) -> str:
+def fetch_webpage(url: str, max_length: int = 100000) -> str:
     """
-    Fetch and extract full content from a webpage.
-    
+    Fetch and convert webpage content to markdown format.
+
+    Use this for reading documentation, articles, or any webpage content.
+
     Args:
         url: The URL of the webpage to fetch
-        
+        max_length: Maximum content length (default: 100000 characters)
+
     Returns:
-        Full webpage content converted to markdown format
+        Webpage content converted to markdown format
     """
     try:
+        import html2text
+
         response = requests.get(
             url,
             timeout=15,
-            headers={
-                "User-Agent": "Mozilla/5.0 (compatible; WebSearchAgent/1.0)"
-            }
+            headers={"User-Agent": "Mozilla/5.0 (compatible; WebSearchAgent/1.0)"}
         )
         response.raise_for_status()
-        
-        # Try to convert HTML to markdown using basic conversion
-        from html import unescape
-        import re
-        
-        content = response.text
-        
-        # Remove script and style tags
-        content = re.sub(r'<script[^>]*>.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)
-        content = re.sub(r'<style[^>]*>.*?</style>', '', content, flags=re.DOTALL | re.IGNORECASE)
-        
-        # Remove HTML tags but keep text
-        content = re.sub(r'<[^>]+>', ' ', content)
-        
-        # Clean up whitespace
-        content = re.sub(r'\s+', ' ', content)
-        content = unescape(content).strip()
-        
-        # Limit to reasonable size (first 10000 chars)
-        if len(content) > 10000:
-            content = content[:10000] + "\n\n[Content truncated - showing first 10000 characters]"
-        
-        return f"Content from {url}:\n\n{content}"
-        
+
+        # Convert HTML to markdown
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = True
+        h.ignore_emphasis = False
+        h.body_width = 0  # Don't wrap lines
+
+        markdown = h.handle(response.text).strip()
+
+        # Truncate if needed
+        if len(markdown) > max_length:
+            markdown = markdown[:max_length] + "\n\n[Content truncated]"
+
+        return f"# Content from {url}\n\n{markdown}"
+
+    except ImportError:
+        return "Error: html2text library not installed. Run: pip install html2text"
     except requests.Timeout:
-        return f"Error: Request to {url} timed out. The page took too long to respond."
+        return f"Error: Request to {url} timed out"
     except requests.RequestException as e:
         return f"Error: Failed to fetch {url} - {str(e)}"
     except Exception as e:
-        return f"Error: Unexpected error fetching {url} - {str(e)}"
+        return f"Error: {str(e)}"
