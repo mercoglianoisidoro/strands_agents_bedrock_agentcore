@@ -79,6 +79,40 @@ This monorepo uses **UV workspace** with a **shared virtual environment**:
 - Each component has its own `pyproject.toml` for dependency declaration
 - Workspace members are automatically discovered and linked
 
+### Dependency Management Strategy
+
+**Pattern: `pyproject.toml` (development) + `requirements.txt` (production)**
+
+Each workspace package follows this best practice:
+
+1. **`pyproject.toml`**: Development dependencies
+   - All production dependencies (for reference)
+   - Test dependencies in `[project.optional-dependencies]`
+   - Workspace references: `strands-shared = { workspace = true }`
+   - Used for local development with `uv sync`
+
+2. **`requirements.txt`**: Production dependencies only
+   - Pinned versions for reproducibility
+   - No test dependencies (lean Docker images)
+   - No workspace references (resolved to actual packages)
+   - Used by Docker/production deployments
+
+**Benefits:**
+- ✅ Reproducible production builds (pinned `requirements.txt`)
+- ✅ Rich development environment (test tools in `pyproject.toml`)
+- ✅ Lean Docker images (no test dependencies)
+- ✅ Workspace integration (local development uses shared packages)
+
+**Example workflow:**
+```bash
+# Local development (includes test deps + workspace packages)
+cd multi-agent
+uv sync --extra test
+
+# Production Docker (only runtime deps)
+pip install -r requirements.txt
+```
+
 ## Installation
 
 **Required first step** - install all workspace packages:
@@ -220,7 +254,20 @@ uv run cli.py aws_investigator
 └─────────────────┘      └──────────────────┘
 ```
 
-**Usage**:
+**Usage - test locally**:
+```bash
+# Deploy
+source ./activate-remote.sh
+agentcore dev
+
+# Connect with client
+uv run agentcore invoke --dev "What is AWS Lambda?"
+
+# Destroy
+agentcore destroy
+```
+
+**Usage - deploy**:
 ```bash
 # Deploy
 source ./activate-remote.sh
@@ -323,6 +370,76 @@ python test_gateway.py call AKIAIOSFODNN7EXAMPLE wJalrXUtnFEMI/K7MDENG/bPxRfiCYE
 cd infrastructure_gateway && terraform destroy --auto-approve
 cd ../infrastructure-lambda && terraform destroy --auto-approve
 ```
+
+---
+
+### 6. Run Multi-Agent System (AgentCore)
+
+**Description**: Deploy and test specialized agents (AWS Investigator, Validator) on AWS Bedrock AgentCore.
+
+**Dependencies**:
+- ✅ AWS credentials with AgentCore permissions
+
+**Architecture**:
+```
+┌─────────────────────────────────────┐
+│         Orchestrator                │
+│   (Coordinates specialized agents)  │
+└────────┬──────────────┬─────────────┘
+         │              │
+         ▼              ▼
+┌──────────────────┐  ┌──────────────────┐
+│ AWS Investigator │  │    Validator     │
+│                  │  │                  │
+│ Investigates and │  │ Verifies claims  │
+│ provides answers │  │ by re-checking   │
+│ with evidence    │  │ evidence sources │
+└──────────────────┘  └──────────────────┘
+```
+
+**Test Locally**:
+```bash
+cd multi-agent
+
+# Test AWS Investigator (default)
+uv run agentcore dev
+# In another terminal:
+uv run agentcore invoke --dev "What EC2 instances are running?"
+
+# Switch to Validator
+uv run agentcore configure set-default validator
+uv run agentcore dev
+# In another terminal:
+uv run agentcore invoke --dev "Verify: Python 3.12 was released in 2023. Evidence: https://www.python.org/downloads/"
+
+# Switch back to AWS Investigator
+uv run agentcore configure set-default aws_investigator
+```
+
+**Deploy to AWS with agentcode sdk**:
+```bash
+cd multi-agent
+
+# Deploy AWS Investigator
+uv run agentcore deploy
+export AWS_INVESTIGATOR_ARN=$(uv run agentcore status | grep "Agent ARN" | awk '{print $3}')
+
+# Deploy Validator
+uv run agentcore configure set-default validator
+uv run agentcore deploy
+export VALIDATOR_ARN=$(uv run agentcore status | grep "Agent ARN" | awk '{print $3}')
+
+# Test deployed agents
+cd ../agentcore_client/strands_agentcore_client
+uv run cli.py --agent-arn $AWS_INVESTIGATOR_ARN
+```
+
+**Agents**:
+- **AWS Investigator**: Web search + AWS CLI investigation (Claude Sonnet 4)
+- **Validator**: Independent evidence verification (Claude Haiku 3.5)
+  - Web URLs: Fetches and verifies content
+  - AWS commands: Re-executes with provided credentials
+- **Orchestrator**: Coordinates agents (coming soon)
 
 
 
