@@ -43,32 +43,38 @@ output "ssh_command" {
   value       = "aws ssm start-session --target ${aws_instance.searxng.id} --region ${var.aws_region}"
 }
 
-output "agent_runtime_arn" {
-  description = "ARN of the AgentCore runtime"
-  value       = aws_bedrockagentcore_agent_runtime.web_search.agent_runtime_arn
+# Multi-Agent Outputs
+output "aws_investigator_arn" {
+  description = "ARN of the AWS Investigator agent runtime"
+  value       = aws_bedrockagentcore_agent_runtime.aws_investigator.agent_runtime_arn
 }
 
-output "agent_runtime_id" {
-  description = "ID of the AgentCore runtime"
-  value       = aws_bedrockagentcore_agent_runtime.web_search.agent_runtime_id
+output "validator_arn" {
+  description = "ARN of the Validator agent runtime"
+  value       = aws_bedrockagentcore_agent_runtime.validator.agent_runtime_arn
 }
 
-output "agent_runtime_name" {
-  description = "Name of the AgentCore runtime"
-  value       = var.agent_name
+output "orchestrator_arn" {
+  description = "ARN of the Orchestrator agent runtime"
+  value       = aws_bedrockagentcore_agent_runtime.orchestrator.agent_runtime_arn
 }
 
 output "ecr_repository_url" {
-  description = "ECR repository URL for the agent"
-  value       = aws_ecr_repository.web_search_agent.repository_url
+  description = "ECR repository URL for all agents"
+  value       = aws_ecr_repository.multi_agent.repository_url
 }
 
-output "agent_image_uri" {
-  description = "Full Docker image URI"
-  value       = "${aws_ecr_repository.web_search_agent.repository_url}:${var.image_tag}"
-}
-
-output "test_agent_command" {
-  description = "Command to test the agent using agentcore_client"
-  value       = "cd agentcore_client/strands_agentcore_client && uv run cli.py --agent-arn ${aws_bedrockagentcore_agent_runtime.web_search.agent_runtime_arn}"
+output "test_commands" {
+  description = "Commands to test the deployed agents"
+  value = <<-EOT
+    # Test AWS Investigator
+    cd agentcore_client/strands_agentcore_client
+    uv run cli.py --agent-arn ${aws_bedrockagentcore_agent_runtime.aws_investigator.agent_runtime_arn}
+    
+    # Test Validator
+    uv run cli.py --agent-arn ${aws_bedrockagentcore_agent_runtime.validator.agent_runtime_arn}
+    
+    # Test Orchestrator (recommended - coordinates both agents)
+    uv run cli.py --agent-arn ${aws_bedrockagentcore_agent_runtime.orchestrator.agent_runtime_arn}
+  EOT
 }

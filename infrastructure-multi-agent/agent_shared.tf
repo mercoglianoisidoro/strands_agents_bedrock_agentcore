@@ -1,4 +1,6 @@
-# Get VPC and subnet from infrastructure outputs (same state file)
+# Shared resources for all agents
+
+# Locals for networking (reference existing VPC resources)
 locals {
   searxng_url        = "http://${aws_instance.searxng.private_ip}:8080"
   private_subnet_id  = aws_subnet.searxng_private.id
@@ -8,21 +10,9 @@ locals {
 # Get ECR authorization token
 data "aws_ecr_authorization_token" "token" {}
 
-# Run pre-deploy script before Docker build
-resource "null_resource" "pre_deploy" {
-  triggers = {
-    always_run = timestamp()
-  }
-  
-  provisioner "local-exec" {
-    command     = "./pre-deploy.sh"
-    working_dir = "${path.module}/${var.docker_build_context}"
-  }
-}
-
-# ECR Repository for web search agent
-resource "aws_ecr_repository" "web_search_agent" {
-  name                 = "${var.environment}_${var.agent_name}"
+# ECR Repository (shared by all agents - same codebase)
+resource "aws_ecr_repository" "multi_agent" {
+  name                 = "${var.environment}_multi_agent"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 
@@ -31,16 +21,27 @@ resource "aws_ecr_repository" "web_search_agent" {
   }
 
   tags = merge(local.default_tags, {
-    Name = "${var.environment}_${var.agent_name}_ecr"
+    Name = "${var.environment}_multi_agent_ecr"
   })
 }
 
-# Build and push Docker image
-resource "docker_image" "web_search_agent" {
-  name = "${aws_ecr_repository.web_search_agent.repository_url}:${var.image_tag}"
+# Build and push Docker image (once for all agents)
+resource "null_resource" "pre_deploy" {
+  triggers = {
+    always_run = timestamp()
+  }
+  
+  provisioner "local-exec" {
+    command     = "./pre-deploy.sh"
+    working_dir = "${path.module}/../multi-agent"
+  }
+}
+
+resource "docker_image" "multi_agent" {
+  name = "${aws_ecr_repository.multi_agent.repository_url}:${var.image_tag}"
 
   build {
-    context    = "${path.module}/${var.docker_build_context}"
+    context    = "${path.module}/../multi-agent"
     dockerfile = "Dockerfile"
     platform   = "linux/arm64"
     no_cache   = true
@@ -53,20 +54,20 @@ resource "docker_image" "web_search_agent" {
   depends_on = [null_resource.pre_deploy]
 }
 
-resource "docker_registry_image" "web_search_agent" {
-  name          = docker_image.web_search_agent.name
+resource "docker_registry_image" "multi_agent" {
+  name          = docker_image.multi_agent.name
   keep_remotely = false
 
   triggers = {
     always_push = timestamp()
   }
 
-  depends_on = [docker_image.web_search_agent]
+  depends_on = [docker_image.multi_agent]
 }
 
-# IAM role for AgentCore Runtime
+# IAM role for AgentCore Runtime (shared by all agents)
 resource "aws_iam_role" "agentcore_runtime" {
-  name = "${var.environment}_${var.iam_role_name_prefix}role"
+  name = "${var.environment}_multi_agent_runtime_role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -115,7 +116,7 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
           "ecr:BatchGetImage",
           "ecr:BatchCheckLayerAvailability"
         ]
-        Resource = aws_ecr_repository.web_search_agent.arn
+        Resource = aws_ecr_repository.multi_agent.arn
       },
       {
         Effect = "Allow"
@@ -128,51 +129,14 @@ resource "aws_iam_role_policy" "agentcore_runtime" {
         Effect = "Allow"
         Action = ["lambda:InvokeFunction"]
         Resource = "arn:aws:lambda:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:function:strands-agents-aws-executor-*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock-agentcore:InvokeAgentRuntime"
+        ]
+        Resource = "arn:aws:bedrock-agentcore:${data.aws_region.current.id}:${data.aws_caller_identity.current.account_id}:agent-runtime/*"
       }
     ]
   })
-}
-
-# CloudWatch Log Group
-resource "aws_cloudwatch_log_group" "agentcore_runtime" {
-  name              = "/aws/bedrock-agentcore/runtimes/${var.environment}_${var.agent_name}"
-  retention_in_days = 7
-
-  tags = local.default_tags
-}
-
-# AgentCore Runtime
-resource "aws_bedrockagentcore_agent_runtime" "web_search" {
-  agent_runtime_name = "${var.environment}_${var.agent_name}"
-  role_arn           = aws_iam_role.agentcore_runtime.arn
-
-  agent_runtime_artifact {
-    container_configuration {
-      container_uri = "${aws_ecr_repository.web_search_agent.repository_url}:${var.image_tag}"
-    }
-  }
-
-  network_configuration {
-    network_mode = "VPC"
-    
-    network_mode_config {
-      subnets         = [local.private_subnet_id]
-      security_groups = [local.security_group_id]
-    }
-  }
-
-  environment_variables = {
-    MODEL_ID     = var.model_id
-    AWS_REGION   = data.aws_region.current.id
-    SEARXNG_URL  = local.searxng_url  # Back to private SearxNG
-    MAX_RESULTS  = "5"
-    
-    # Lambda executor config
-    AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR = "default"
-    LAMBDA_FUNCTION_NAME = "strands-agents-aws-executor-${var.environment}"
-  }
-
-  tags = local.default_tags
-
-  depends_on = [docker_registry_image.web_search_agent]
 }

@@ -89,8 +89,10 @@ class remote_agent_client:
 
     def call_agent(self, agent_arn, session_id, prompt) -> str:
 
-        # Initialize the Bedrock AgentCore client
-        agent_core_client = boto3.client('bedrock-agentcore')
+        # Initialize the Bedrock AgentCore client with extended timeout
+        from botocore.config import Config
+        config = Config(read_timeout=300)  # 5 minutes for complex queries
+        agent_core_client = boto3.client('bedrock-agentcore', config=config)
 
         # Prepare the payload
         payload = json.dumps({"prompt": prompt}).encode()
