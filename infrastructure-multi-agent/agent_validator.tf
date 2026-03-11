@@ -41,6 +41,18 @@ resource "aws_bedrockagentcore_agent_runtime" "validator" {
     # Lambda executor config
     AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR = "default"
     LAMBDA_FUNCTION_NAME = "strands-agents-aws-executor-${var.environment}"
+    
+    # OTEL observability configuration
+    AGENT_OBSERVABILITY_ENABLED         = "true"
+    OTEL_PYTHON_DISTRO                  = "aws_distro"
+    OTEL_PYTHON_CONFIGURATOR            = "aws_configurator"
+    OTEL_EXPORTER_OTLP_PROTOCOL         = "http/protobuf"
+    OTEL_TRACES_EXPORTER                = "otlp"
+    OTEL_LOGS_EXPORTER                  = "otlp"
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "https://xray.${data.aws_region.current.name}.amazonaws.com"
+    OTEL_EXPORTER_OTLP_LOGS_PROTOCOL    = "http/protobuf"
+    OTEL_RESOURCE_ATTRIBUTES            = "service.name=${local.validator_name},aws.log.group.names=/aws/bedrock-agentcore/runtimes/${local.validator_name}"
+    OTEL_EXPORTER_OTLP_LOGS_HEADERS     = "x-aws-log-group=/aws/bedrock-agentcore/runtimes/${local.validator_name},x-aws-metric-namespace=bedrock-agentcore"
   }
 
   tags = local.default_tags

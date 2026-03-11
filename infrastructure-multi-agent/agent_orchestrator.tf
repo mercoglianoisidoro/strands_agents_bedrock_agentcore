@@ -2,7 +2,7 @@
 # Coordinates AWS Investigator and Validator via A2A protocol
 
 locals {
-  orchestrator_name = "${var.environment}_orchestrator_v2"
+  orchestrator_name = "${var.environment}_orchestrator"
 }
 
 # CloudWatch Log Group
@@ -41,6 +41,21 @@ resource "aws_bedrockagentcore_agent_runtime" "orchestrator" {
     # Worker agent ARNs for A2A communication
     AWS_INVESTIGATOR_ARN = aws_bedrockagentcore_agent_runtime.aws_investigator.agent_runtime_arn
     VALIDATOR_ARN        = aws_bedrockagentcore_agent_runtime.validator.agent_runtime_arn
+    
+    # Conversation logging
+    CONVERSATION_LOG_GROUP = "/aws/bedrock-agentcore/conversations"
+    
+    # OTEL observability configuration
+    AGENT_OBSERVABILITY_ENABLED         = "true"
+    OTEL_PYTHON_DISTRO                  = "aws_distro"
+    OTEL_PYTHON_CONFIGURATOR            = "aws_configurator"
+    OTEL_EXPORTER_OTLP_PROTOCOL         = "http/protobuf"
+    OTEL_TRACES_EXPORTER                = "otlp"
+    OTEL_LOGS_EXPORTER                  = "otlp"
+    OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "https://xray.${data.aws_region.current.name}.amazonaws.com"
+    OTEL_EXPORTER_OTLP_LOGS_PROTOCOL    = "http/protobuf"
+    OTEL_RESOURCE_ATTRIBUTES            = "service.name=${local.orchestrator_name},aws.log.group.names=/aws/bedrock-agentcore/runtimes/${local.orchestrator_name}"
+    OTEL_EXPORTER_OTLP_LOGS_HEADERS     = "x-aws-log-group=/aws/bedrock-agentcore/runtimes/${local.orchestrator_name},x-aws-metric-namespace=bedrock-agentcore"
   }
 
   tags = local.default_tags
