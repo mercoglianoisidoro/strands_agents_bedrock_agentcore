@@ -18,13 +18,27 @@ Pattern: Matches remote_entrypoint.py and validator_entrypoint.py for consistenc
 """
 
 import logging
+import sys
 from bedrock_agentcore import BedrockAgentCoreApp
 
-logging.basicConfig(level=logging.INFO)
+# Force unbuffered output for CloudWatch
+sys.stdout = sys.stdout
+sys.stderr = sys.stderr
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
 logger = logging.getLogger(__name__)
 
 app = BedrockAgentCoreApp()
 _agent = None  # Module-level cache for agent instance
+
+# Startup log
+logger.info("=" * 60)
+logger.info("ORCHESTRATOR ENTRYPOINT LOADED")
+logger.info("=" * 60)
 
 
 def get_agent():
@@ -48,13 +62,15 @@ def get_agent():
     """
     global _agent
     if _agent is None:
-        logger.info("Creating orchestrator agent instance")
+        logger.info("=" * 60)
+        logger.info("CREATING ORCHESTRATOR AGENT INSTANCE")
+        logger.info("=" * 60)
         try:
             from multi_agents.orchestrator import create_orchestrator_agent
             _agent = create_orchestrator_agent()
-            logger.info("Orchestrator agent created successfully")
+            logger.info("✅ Orchestrator agent created successfully")
         except Exception as e:
-            logger.error(f"Failed to create orchestrator agent: {e}", exc_info=True)
+            logger.error(f"❌ FATAL: Agent creation failed - {e}", exc_info=True)
             raise RuntimeError(f"Orchestrator initialization failed: {e}") from e
     return _agent
 
@@ -85,24 +101,35 @@ async def invoke(payload, context):
         - Invalid payload: Returns error message
         - Agent errors: Logs and returns error message
     """
+    logger.info("=" * 60)
+    logger.info(f"📥 INVOCATION RECEIVED - Session: {context.session_id}")
+    logger.info("=" * 60)
+    
     try:
         if not isinstance(payload, dict):
+            logger.error("❌ Invalid payload format")
             yield "Error: Invalid payload format"
             return
 
         user_message = payload.get("prompt", "Hello!")
-        logger.info(f"Orchestrator processing: {user_message[:50]}...")
+        logger.info(f"📝 Processing: {user_message[:100]}")
+
+        from multi_agents.conversation_logger import log_event
+        log_event(context.session_id, "user_query", "user", user_message)
 
         agent = get_agent()
         stream = agent.stream_async(user_message)
 
+        response_chunks = []
         async for event in stream:
             if "data" in event and isinstance(event["data"], str):
+                response_chunks.append(event["data"])
                 yield event["data"]
 
-        logger.info("Orchestrator request completed")
+        log_event(context.session_id, "final_response", "orchestrator", "".join(response_chunks))
+        logger.info("✅ Request completed successfully")
     except Exception as e:
-        logger.error(f"Orchestrator error: {e}", exc_info=True)
+        logger.error(f"❌ Orchestrator error: {e}", exc_info=True)
         yield f"Error: {str(e)}"
 
 
