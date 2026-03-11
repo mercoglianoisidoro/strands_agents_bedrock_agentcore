@@ -39,7 +39,7 @@ echo "   This will take 3-5 minutes"
 echo ""
 
 # Run terraform apply in background
-terraform apply -auto-approve > "$LOG_FILE" 2>&1 &
+terraform apply -auto-approve | tee "$LOG_FILE" 2>&1 &
 TF_PID=$!
 
 # Show progress
