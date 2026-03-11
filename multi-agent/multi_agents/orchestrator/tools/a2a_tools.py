@@ -48,40 +48,33 @@ def _get_worker_session(worker_name: str, parent_session_id: str = None) -> str:
 @tool
 def call_aws_investigator(query: str) -> str:
     """
-    Delegate investigation tasks to AWS Investigator agent.
+    Research AWS questions by searching documentation and web sources.
     
-    Uses PERSISTENT session to maintain context across calls. This means:
-    - Investigator remembers previously fetched web pages
-    - No re-fetching of same URLs
-    - Can build on previous research
-    - Multi-turn conversations work naturally
-    
-    Use this when you need to:
-    - Search the web for AWS information
-    - Execute AWS CLI commands
-    - Investigate AWS services, pricing, or features
-    - Follow up on previous investigations
+    Use this tool to gather information about AWS services, errors, pricing, 
+    features, or troubleshooting steps.
     
     Args:
-        query: The investigation request to send to AWS Investigator
+        query: The AWS question or topic to research
         
     Returns:
-        The investigation results from AWS Investigator
+        Research findings with sources and documentation links
     """
     agent_arn = os.getenv("AWS_INVESTIGATOR_ARN")
-    if not agent_arn:
-        return "Error: AWS_INVESTIGATOR_ARN environment variable not set"
-    
-    # Get persistent session for this worker
     session_id = _get_worker_session("investigator")
+    
+    if not agent_arn:
+        error_msg = "Error: AWS_INVESTIGATOR_ARN environment variable not set"
+        log_event(session_id, "a2a_error", "orchestrator→investigator", error_msg)
+        return error_msg
+    
+    # Log BEFORE attempting the call
+    log_event(session_id, "a2a_call", "orchestrator→investigator", query)
     
     try:
         from botocore.config import Config
         config = Config(read_timeout=180)  # 3 minutes max per A2A call
         region = os.getenv("AWS_REGION", "us-west-2")
         client = boto3.client("bedrock-agentcore", region_name=region, config=config)
-
-        log_event(session_id, "a2a_call", "orchestrator→investigator", query)
 
         response = client.invoke_agent_runtime(
             agentRuntimeArn=agent_arn,
@@ -111,46 +104,55 @@ def call_aws_investigator(query: str) -> str:
         return response_text
     
     except Exception as e:
-        return f"Error calling AWS Investigator: {str(e)}"
+        error_msg = f"Error calling AWS Investigator: {str(e)}"
+        log_event(session_id, "a2a_error", "orchestrator→investigator", error_msg)
+        logger.error(f"Investigator call failed: {e}", exc_info=True)
+        return error_msg
 
 
 @tool
-def call_validator(claim: str, evidence_source: str) -> str:
+def call_validator(full_answer: str, original_query: str) -> str:
     """
-    Delegate verification tasks to Validator agent.
+    Validate a complete answer for accuracy and completeness.
     
-    Uses PERSISTENT session to maintain verification context. Validator will:
-    - Fetch URLs independently (not relying on Investigator's cache)
-    - Re-execute AWS commands with provided credentials
-    - Build verification history over multiple checks
+    REQUIRED: You MUST call this tool before responding to the user.
     
-    IMPORTANT: Pass URL references, NOT content. Web pages are too large
-    for context windows. Validator will fetch independently for true verification.
-    
-    Use this when you need to:
-    - Verify claims made by AWS Investigator
-    - Re-check evidence sources (URLs, AWS commands)
-    - Validate information accuracy
-    - Independent fact-checking
+    The validator independently verifies your answer by checking sources,
+    re-executing commands, and validating technical accuracy.
     
     Args:
-        claim: The claim to verify
-        evidence_source: The evidence source (URL or AWS command) - NOT content!
+        full_answer: Your COMPLETE draft answer (not a summary)
+        original_query: The original user question
         
     Returns:
-        The verification results from Validator
+        "APPROVED" if answer is correct, or "CORRECTIONS: <issues>" if fixes needed
     """
     agent_arn = os.getenv("VALIDATOR_ARN")
-    if not agent_arn:
-        return "Error: VALIDATOR_ARN environment variable not set"
-    
-    # Get persistent session for this worker
     session_id = _get_worker_session("validator")
     
-    verification_request = f"""Verify: {claim}
-Evidence Source: {evidence_source}
+    if not agent_arn:
+        error_msg = "Error: VALIDATOR_ARN environment variable not set"
+        log_event(session_id, "a2a_error", "orchestrator→validator", error_msg)
+        return error_msg
+    
+    validation_request = f"""Review this complete answer for accuracy and completeness.
 
-Fetch and analyze the source independently to verify the claim."""
+Original Question: {original_query}
+
+Complete Answer to Review:
+{full_answer}
+
+Instructions:
+- Verify key facts by checking sources independently
+- Check for completeness (missing important information?)
+- Validate technical accuracy
+- If everything is correct and complete, respond with: APPROVED
+- If corrections needed, respond with: CORRECTIONS: <list specific issues>
+
+Be specific about what needs fixing."""
+    
+    # Log BEFORE attempting the call
+    log_event(session_id, "a2a_call", "orchestrator→validator", validation_request)
     
     try:
         from botocore.config import Config
@@ -158,12 +160,10 @@ Fetch and analyze the source independently to verify the claim."""
         region = os.getenv("AWS_REGION", "us-west-2")
         client = boto3.client("bedrock-agentcore", region_name=region, config=config)
 
-        log_event(session_id, "a2a_call", "orchestrator→validator", verification_request)
-
         response = client.invoke_agent_runtime(
             agentRuntimeArn=agent_arn,
             runtimeSessionId=session_id,
-            payload=json.dumps({"prompt": verification_request}).encode()
+            payload=json.dumps({"prompt": validation_request}).encode()
         )
         
         # Parse streaming response
@@ -188,4 +188,7 @@ Fetch and analyze the source independently to verify the claim."""
         return response_text
     
     except Exception as e:
-        return f"Error calling Validator: {str(e)}"
+        error_msg = f"Error calling Validator: {str(e)}"
+        log_event(session_id, "a2a_error", "orchestrator→validator", error_msg)
+        logger.error(f"Validator call failed: {e}", exc_info=True)
+        return error_msg
