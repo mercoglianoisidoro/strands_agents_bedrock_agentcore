@@ -12,11 +12,12 @@ dependencies = [
     "strands-shared",
     "bedrock-agentcore>=1.0.3",
     "bedrock-agentcore-starter-toolkit>=0.3.0",
-    "strands-agents>=1.16.0",
+    "strands-agents[otel]>=1.16.0",
     "strands-agents-tools>=0.2.16",
     "boto3>=1.40.0",
     "requests>=2.31.0",
     "html2text>=2024.2.26",
+    "aws-opentelemetry-distro>=0.10.0",
 ]
 
 [project.optional-dependencies]
