@@ -39,7 +39,7 @@ resource "aws_bedrockagentcore_agent_runtime" "validator" {
     AWS_REGION       = data.aws_region.current.id
     
     # Lambda executor config
-    AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR = "default"
+
     LAMBDA_FUNCTION_NAME = "strands-agents-aws-executor-${var.environment}"
     
     # OTEL observability configuration
