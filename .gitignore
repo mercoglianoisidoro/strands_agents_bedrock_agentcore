@@ -193,3 +193,7 @@ infrastructure-agentcore/*.tfplan
 # Lambda deployment packages
 lambda_infrastructure/lambda_aws_function.zip
 infrastructure-lambda/lambda_aws_function.zip
+infrastructure-lambda/lambda_aws_function.zip
+
+
+multi-agent/strands_shared/

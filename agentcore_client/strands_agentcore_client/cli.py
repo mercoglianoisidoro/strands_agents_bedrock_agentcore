@@ -38,6 +38,16 @@ async def main():
         help="Path to .bedrock_agentcore.yaml file"
     )
     parser.add_argument(
+        "--query", "-q",
+        help="Send a single query and exit (non-interactive mode)"
+    )
+    parser.add_argument(
+        "--format",
+        choices=["text", "rich"],
+        default="text",
+        help="Output format for --query mode: 'text' for plain text (default), 'rich' for formatted markdown"
+    )
+    parser.add_argument(
         "--log-level",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         default="WARNING",
@@ -54,15 +64,47 @@ async def main():
 
     try:
         # Create remote agent client
-        print("Connecting to remote agent...")
+        if not args.query:
+            print("Connecting to remote agent...")
+        
         client = remote_agent_client(
             agent_arn=args.agent_arn,
             config_path=args.config_path,
-            log_session=True
+            log_session=not args.query  # Only log session in interactive mode
         )
-        print(f"Connected to agent: {client.agent_arn}")
         
-        # Start terminal interface
+        if not args.query:
+            print(f"Connected to agent: {client.agent_arn}")
+        
+        # Handle query mode (non-interactive)
+        if args.query:
+            try:
+                response = client(args.query)
+                
+                if args.format == "rich":
+                    # Use rich formatting
+                    try:
+                        from rich.console import Console
+                        from rich.markdown import Markdown
+                        console = Console(width=None, legacy_windows=False)
+                        console.print(Markdown(response))
+                    except ImportError:
+                        # Fallback to plain text if rich not available
+                        print(response)
+                else:
+                    # Plain text output
+                    print(response)
+            except Exception as e:
+                # Show full error details in query mode
+                import traceback
+                print(f"Error: {e}", file=sys.stderr)
+                print("\nFull traceback:", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                sys.exit(1)
+            
+            return
+        
+        # Start interactive terminal
         terminal = Terminal(client)
         await terminal.start()
         

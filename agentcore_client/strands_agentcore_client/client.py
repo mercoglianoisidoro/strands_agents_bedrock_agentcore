@@ -89,18 +89,44 @@ class remote_agent_client:
 
     def call_agent(self, agent_arn, session_id, prompt) -> str:
 
-        # Initialize the Bedrock AgentCore client
-        agent_core_client = boto3.client('bedrock-agentcore')
+        # Initialize the Bedrock AgentCore client with extended timeout
+        from botocore.config import Config
+        from botocore.exceptions import ClientError
+        config = Config(read_timeout=300)  # 5 minutes for complex queries
+        agent_core_client = boto3.client('bedrock-agentcore', config=config)
 
         # Prepare the payload
         payload = json.dumps({"prompt": prompt}).encode()
 
         # Invoke the agent
-        response = agent_core_client.invoke_agent_runtime(
-            agentRuntimeArn=agent_arn,
-            runtimeSessionId=session_id,
-            payload=payload
-        )
+        try:
+            response = agent_core_client.invoke_agent_runtime(
+                agentRuntimeArn=agent_arn,
+                runtimeSessionId=session_id,
+                payload=payload
+            )
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            error_msg = e.response.get('Error', {}).get('Message', '')
+            
+            if error_code == 'ResourceNotFoundException':
+                # Extract runtime ID from ARN
+                runtime_id = agent_arn.split('/')[-1] if '/' in agent_arn else agent_arn
+                
+                raise RuntimeError(
+                    f"\n❌ Agent runtime not found or not ready.\n\n"
+                    f"Runtime ID: {runtime_id}\n"
+                    f"ARN: {agent_arn}\n\n"
+                    f"Possible causes:\n"
+                    f"  1. Runtime was recently recreated (check Terraform outputs)\n"
+                    f"  2. Runtime is still initializing (wait 30 seconds and retry)\n"
+                    f"  3. Wrong ARN provided\n\n"
+                    f"To get the current ARN:\n"
+                    f"  cd infrastructure-multi-agent && terraform output orchestrator_arn\n"
+                ) from e
+            else:
+                # Re-raise other errors with original message
+                raise
 
         # Process and print the response
         if "text/event-stream" in response.get("contentType", ""):
@@ -114,7 +140,12 @@ class remote_agent_client:
                         try:
                             # Parse JSON and extract the actual text
                             parsed = json.loads(line)
-                            content.append(parsed)
+                            # Extract text from dict if it's a dict
+                            if isinstance(parsed, dict):
+                                text = parsed.get('data', parsed.get('text', str(parsed)))
+                                content.append(text)
+                            else:
+                                content.append(str(parsed))
                         except json.JSONDecodeError:
                             # If not JSON, use as-is
                             content.append(line)
