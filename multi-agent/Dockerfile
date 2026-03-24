@@ -14,12 +14,12 @@ COPY multi_agents/ ./multi_agents/
 COPY *_entrypoint.py ./
 
 # Copy startup script
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV AGENT_ENTRYPOINT=remote_entrypoint
 
-CMD ["/app/start.sh"]
+CMD ["/app/entrypoint.sh"]
