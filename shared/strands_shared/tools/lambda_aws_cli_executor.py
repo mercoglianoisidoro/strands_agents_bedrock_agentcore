@@ -39,14 +39,18 @@ def lambda_aws_cli_executor(
         print(f"Executing Lambda with command: {bash_command}")
 
     profile_name = os.getenv('AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR')
-    if not profile_name or not profile_name.strip():
-        raise ValueError("AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR environment variable must be set to a valid profile name")
-    print(f"Using AWS profile: {profile_name}")
-    session = boto3.Session(profile_name=profile_name)
+    if profile_name and profile_name.strip():
+        print(f"Using AWS profile: {profile_name}")
+        session = boto3.Session(profile_name=profile_name)
+    else:
+        print("Using default credential chain (IAM role)")
+        session = boto3.Session()
 
-    # Create Lambda client
+    # Create Lambda client (use AWS_REGION env var or fall back to us-west-2)
+    lambda_region = os.getenv('AWS_REGION', os.getenv('AWS_DEFAULT_REGION'))
     lambda_client = session.client(
-        'lambda'
+        'lambda',
+        region_name=lambda_region
     )
 
     # Create payload
