@@ -41,7 +41,6 @@ resource "aws_bedrockagentcore_agent_runtime" "aws_investigator" {
     MAX_RESULTS      = "5"
     
     # Lambda executor config
-    AWS_PROFILE_LAMBDA_AWS_CLI_EXECUTOR = "default"
     LAMBDA_FUNCTION_NAME = "strands-agents-aws-executor-${var.environment}"
     
     # OTEL observability configuration
