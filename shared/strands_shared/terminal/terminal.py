@@ -4,6 +4,7 @@ Simple Terminal Interface for AI Agent Communication
 
 import asyncio
 import sys
+import os
 from typing import Optional
 from colorama import init, Fore, Style, Back
 import io
@@ -27,7 +28,9 @@ class Terminal:
         self.agent = agent
         self.running = True
         self.use_markdown = use_markdown and RICH_AVAILABLE
-        self.show_streaming = show_streaming
+        # Check environment variable, fallback to parameter
+        no_streaming_env = os.getenv('NO_STREAMING_LOG', '').lower() == 'true'
+        self.show_streaming = not no_streaming_env if no_streaming_env else show_streaming
         if self.use_markdown:
             self.console = Console(width=None, legacy_windows=False)
 
@@ -55,7 +58,7 @@ class Terminal:
     def display_welcome(self) -> None:
         """Display colorful welcome message with OS-specific instructions"""
         import platform
-        
+
         # Determine OS-specific key names
         os_name = platform.system()
         if os_name == "Darwin":  # macOS
@@ -67,9 +70,9 @@ class Terminal:
         else:  # Linux and others
             newline_key = "Alt+Enter"
             exit_key = "Ctrl+C or Ctrl+D"
-        
+
         print(f"{Fore.CYAN}{Style.BRIGHT}{'='*50}")
-        print(f"{Fore.YELLOW}{Style.BRIGHT}🤖  AI AGENT TERMINAL SIMULATOR  🤖")
+        print(f"{Fore.YELLOW}{Style.BRIGHT}🤖  AI AGENT TERMINAL CLIENT  🤖")
         print(f"{Fore.CYAN}{Style.BRIGHT}{'='*50}")
         print(f"{Fore.GREEN}Welcome! You can now chat with the AI agent.")
         print(f"{Fore.WHITE}• Type or paste your message and press Enter")
@@ -80,25 +83,21 @@ class Terminal:
 
     async def process_input(self, user_input: str) -> str:
         """Send input to agent and get response.
-        
+
         Args:
             user_input: The user's input message to send to the agent
-            
+
         Returns:
             The agent's response as a string
-            
+
         Note:
             Captures and styles streaming output in dim gray during execution.
+            Set NO_STREAMING_LOG=true to hide streaming output completely.
             Returns error message if agent execution fails.
         """
         try:
-            # Capture stdout to style the streamed output in dim gray.
-            # Strands agents automatically stream their responses to stdout during execution
-            # for real-time feedback. We capture it and display it in dim gray, then show
-            # the final formatted response normally.
-            captured_output = io.StringIO()
-
             if self.show_streaming:
+                # Show streaming in dim gray
                 class GrayStdout:
                     def write(self, text):
                         if text.strip():  # Only colorize non-empty text
@@ -120,6 +119,7 @@ class Terminal:
                     sys.stdout = original_stdout
             else:
                 # Hide streaming output completely
+                captured_output = io.StringIO()
                 with redirect_stdout(captured_output):
                     response = self.agent(user_input)
 
@@ -136,26 +136,26 @@ class Terminal:
 
     async def get_user_input(self) -> str:
         """Get input from user with multiline support using prompt_toolkit.
-        
+
         Returns:
             User input string, or 'exit'/'quit' for termination, or 'EMPTY_INPUT' if empty
-            
+
         Note:
             Uses prompt_toolkit for proper paste handling and multi-line support.
             Press Alt+Enter to insert newlines within input.
         """
         from prompt_toolkit import PromptSession
         from prompt_toolkit.key_binding import KeyBindings
-        
+
         try:
             # Create key bindings for multi-line input
             kb = KeyBindings()
-            
+
             @kb.add('escape', 'enter')
             def _(event):
                 """Alt+Enter to insert newline"""
                 event.current_buffer.insert_text('\n')
-            
+
             # Use prompt_toolkit which handles paste properly
             session = PromptSession()
             result = await session.prompt_async(
@@ -163,11 +163,11 @@ class Terminal:
                 multiline=False,
                 key_bindings=kb
             )
-            
+
             # Check for exit commands
             if result.lower().strip() in ['exit', 'quit']:
                 return result.lower().strip()
-            
+
             return result if result.strip() else "EMPTY_INPUT"
 
         except (EOFError, KeyboardInterrupt):
